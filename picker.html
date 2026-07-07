@@ -1,78 +1,39 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>Select a Google Sheet</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      background: #1c1c1e;
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-      color: #ffffff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    #status {
-      text-align: center;
-      opacity: 0.7;
-    }
-  </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://apis.google.com/js/platform.js?onload=initPicker" async defer></script>
+    <script>
+        function initPicker() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            const apiKey = urlParams.get('apiKey');
+            const appId = urlParams.get('appId');
+
+            gapi.load('picker', function() {
+                var picker = new google.picker.PickerBuilder()
+                    .addView(google.picker.ViewId.SPREADSHEETS)
+                    .setOAuthToken(token)
+                    .setAppId(appId)
+                    .setDeveloperKey(apiKey)
+                    .setCallback(pickerCallback)
+                    .build();
+                picker.setVisible(true);
+            });
+        }
+
+        function pickerCallback(data) {
+            if (data.action == google.picker.Action.PICKED) {
+                var doc = data.docs[0];
+                window.webkit.messageHandlers.pickerBridge.postMessage({
+                    action: "picked",
+                    fileId: doc.id
+                });
+            } else if (data.action == google.picker.Action.CANCELLED) {
+                window.webkit.messageHandlers.pickerBridge.postMessage({ action: "cancelled" });
+            }
+        }
+    </script>
 </head>
-<body>
-  <div id="status">Loading picker…</div>
-
-  <script src="https://apis.google.com/js/api.js"></script>
-  <script>
-    // Values are passed in as URL query params by the iOS app (see GooglePickerView.swift).
-    const params = new URLSearchParams(window.location.search);
-    const oauthToken = params.get('token');
-    const apiKey = params.get('apiKey');
-    const appId = params.get('appId');
-
-    function postToApp(message) {
-      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.pickerBridge) {
-        window.webkit.messageHandlers.pickerBridge.postMessage(message);
-      }
-    }
-
-    function onApiLoad() {
-      gapi.load('picker', { callback: createPicker });
-    }
-
-    function createPicker() {
-      if (!oauthToken || !apiKey) {
-        document.getElementById('status').textContent = 'Missing token or API key.';
-        return;
-      }
-
-      const view = new google.picker.DocsView(google.picker.ViewId.SPREADSHEETS)
-        .setMode(google.picker.DocsViewMode.LIST);
-
-      const picker = new google.picker.PickerBuilder()
-        .setAppId(appId)
-        .setOAuthToken(oauthToken)
-        .setDeveloperKey(apiKey)
-        .addView(view)
-        .setCallback(pickerCallback)
-        .build();
-
-      document.getElementById('status').style.display = 'none';
-      picker.setVisible(true);
-    }
-
-    function pickerCallback(data) {
-      if (data.action === google.picker.Action.PICKED) {
-        const fileId = data.docs[0].id;
-        postToApp({ action: 'picked', fileId: fileId });
-      } else if (data.action === google.picker.Action.CANCEL) {
-        postToApp({ action: 'cancelled' });
-      }
-    }
-
-    onApiLoad();
-  </script>
-</body>
+<body style="margin:0; padding:0;"></body>
 </html>
